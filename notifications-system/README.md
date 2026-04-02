@@ -29,3 +29,29 @@
 
 **Indexes:**
 - user_id — fetch all tokens for a user (one user, multiple devices)
+## Preferences Collection
+
+| Field | Type | Description |
+|---|---|---|
+| user_id | UUID | Reference to user |
+| email_enabled | BOOLEAN | Email notifications on/off |
+| push_enabled | BOOLEAN | Push notifications on/off |
+| inapp_enabled | BOOLEAN | In-app notifications on/off |
+| created_at | TIMESTAMP | Creation time |
+
+**Indexes:**
+- (user_id) — lookup preferences per user
+
+---
+
+## Users Collection
+
+| Field | Type | Description |
+|---|---|---|
+| id | UUID | Unique identifier |
+| email | TEXT | Email address for delivery |
+| phone | TEXT | Phone number (optional) |
+| created_at | TIMESTAMP | Creation time |
+
+**Indexes:**
+- (email) — lookup user by email
