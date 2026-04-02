@@ -1,8 +1,4 @@
-Beginning of journey 
 
-API Design: 
-GET notifications/ 
-POST notifications/push 
 
 ## Notifications Collection
 
@@ -21,3 +17,15 @@ POST notifications/push
 **Indexes:**
 - (user_id, created_at) — fetch user notifications sorted by time
 - (status) — retry jobs fetch failed notifications
+## Device Tokens Collection
+
+| Field | Type | Description |
+|---|---|---|
+| id | UUID | Unique identifier |
+| user_id | UUID | Reference to user |
+| token | TEXT | Device push token |
+| platform | ENUM | ios, android |
+| created_at | TIMESTAMP | Token registration time |
+
+**Indexes:**
+- user_id — fetch all tokens for a user (one user, multiple devices)
