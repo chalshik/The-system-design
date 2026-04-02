@@ -1,11 +1,32 @@
-Explanation of my high level architecture,so 
-1) I distiungished event producers like system events, transactional, periodic and external systems. They talk only to producer service which enqueues first queue for all possible events that must be delivered, this messages soonly will be pulled by notifications service, by adding queue layer between notification service and producer we ensure it is fault tolerant. This part explains how we collect different events that needs to be delivered 
-2) Second part is processing this events, notification services sets configuration, templates, checks preferences of users, so I added cache layer where we store preferences for users and information about sent messages already to avoid duplicaton, to avoid single point of failure I used clustered redis. And second part is routing this events to correct channels, for this we use second queue with channel topics. For queue I used rabbitmq, due to simplicity and we dont need persistence of sent messages. 
-3) Delivering part we have clustered channel workers, there are : email, in-app, push. They will pull data from specific topics and using their specific interface providers, send their messages. In case of failure we failure it will be navigated to DLQ rabbitmq built in feature to resend messages.
+## High Level Architecture
 
+### 1. Event Collection
+I distinguished event producers: system events, transactional, periodic, and external systems. They communicate only with the Producer service, which enqueues events into the first queue. These messages are pulled by the Notification Service. By adding a queue layer between the Notification Service and producers, we ensure fault tolerance. This part explains how we collect different events that need to be delivered.
 
+### 2. Event Processing
+The Notification Service sets configuration, templates, and checks user preferences. I added a cache layer to store user preferences and already-sent message IDs to avoid duplication. To avoid a single point of failure, I used a clustered Redis. The second part is routing events to correct channels — for this we use a second queue with channel-specific topics. I used RabbitMQ due to its simplicity, and because we don't need persistence of already-sent messages.
 
-## Notifications Collection
+### 3. Delivery
+We have clustered channel workers for email, in-app, and push. They pull data from their specific topics and deliver messages via channel-specific providers. In case of failure, messages are routed to the DLQ — a built-in RabbitMQ feature for redelivery.
+
+---
+
+## Trade-offs
+
+### 1. Two-Queue Architecture (RabbitMQ)
+I used RabbitMQ to make the Notification Service and channel workers fault tolerant. During event gathering and processing, data could be lost — two queues address this: the first collects events, the second routes messages to channels. The trade-off is additional latency due to extra layers. Both queues are fault tolerant via RabbitMQ distributed clustering.
+
+### 2. Redis for Preferences
+The requirements specify respecting user preferences, meaning we must look up preferences for every event. This adds load on the database. Since preferences change rarely, we cache them in Redis. To ensure fault tolerance, we use a clustered Redis setup.
+
+### 3. Cassandra as Primary Database
+We have a high volume of writes and updates — after notification persistence, their status changes frequently. Read volume is also high for in-app notifications and retry logic. Cassandra offers distributed equal nodes by default, making it highly available. It is also easier to shard compared to SQL-based databases, which have significant complexity at scale.
+
+---
+
+## Data Models
+
+### Notifications Collection
 
 | Field | Type | Description |
 |---|---|---|
@@ -14,15 +35,18 @@ Explanation of my high level architecture,so
 | type | ENUM | email, push, inapp |
 | title | TEXT | Notification title |
 | body | TEXT | Notification body |
-| attachments | LIST<TEXT> | URLs to attachments |
+| attachments | LIST\<TEXT\> | URLs to attachments |
 | status | ENUM | pending, sent, failed |
 | is_read | BOOLEAN | Only relevant for inapp |
 | created_at | TIMESTAMP | Creation time |
 
 **Indexes:**
-- (user_id, created_at) — fetch user notifications sorted by time
-- (status) — retry jobs fetch failed notifications
-## Device Tokens Collection
+- `(user_id, created_at)` — fetch user notifications sorted by time
+- `(status)` — retry jobs fetch failed notifications
+
+---
+
+### Device Tokens Collection
 
 | Field | Type | Description |
 |---|---|---|
@@ -33,8 +57,11 @@ Explanation of my high level architecture,so
 | created_at | TIMESTAMP | Token registration time |
 
 **Indexes:**
-- user_id — fetch all tokens for a user (one user, multiple devices)
-## Preferences Collection
+- `(user_id)` — fetch all tokens for a user (one user, multiple devices)
+
+---
+
+### Preferences Collection
 
 | Field | Type | Description |
 |---|---|---|
@@ -45,11 +72,11 @@ Explanation of my high level architecture,so
 | created_at | TIMESTAMP | Creation time |
 
 **Indexes:**
-- (user_id) — lookup preferences per user
+- `(user_id)` — lookup preferences per user
 
 ---
 
-## Users Collection
+### Users Collection
 
 | Field | Type | Description |
 |---|---|---|
@@ -59,4 +86,4 @@ Explanation of my high level architecture,so
 | created_at | TIMESTAMP | Creation time |
 
 **Indexes:**
-- (email) — lookup user by email
+- `(email)` — lookup user by email
