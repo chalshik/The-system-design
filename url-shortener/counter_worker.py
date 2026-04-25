@@ -10,9 +10,8 @@ class IDWorker:
     def _fetch_new_range(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("BEGIN TRANSACTION")
-        
         try:
+            cursor.execute("BEGIN TRANSACTION")
             cursor.execute("SELECT last_id FROM global_counters WHERE counter_name = 'url_shortener'")
             last_id = cursor.fetchone()[0]
             
@@ -34,5 +33,4 @@ class IDWorker:
             self.max_id_in_range = end
         else:
             self.current_id += 1
-            
         return self.current_id
